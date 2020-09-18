@@ -1,6 +1,12 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
+# Use all cores for the build process
+CORE_COUNT=$(cat /proc/cpuinfo | grep -c processor)
+
+# Allow JOB_COUNT environment variable to override the job count
+JOB_COUNT=${JOB_COUNT:-$CORE_COUNT}
+
 # Dependencies
 sudo apt-get update
 sudo apt-get install -y \
@@ -9,9 +15,11 @@ sudo apt-get install -y \
     git-core \
     autoconf \
     bison \
+    re2c \
+    libonig-dev \
+    libsqlite3-dev \
     libxml2-dev \
     libbz2-dev \
-    libmcrypt-dev \
     libicu-dev \
     libssl-dev \
     libcurl4-openssl-dev \
@@ -25,13 +33,13 @@ sudo mkdir /usr/local/php7
 
 git clone https://github.com/php/php-src.git
 cd php-src
-git fetch
-git checkout PHP-7.0.12
+git fetch --tags --prune
+git checkout tags/php-7.4.5
 ./buildconf --force
 
 CONFIGURE_STRING="--prefix=/usr/local/php7 \
+                  --enable-huge-code-pages \
                   --with-config-file-scan-dir=/usr/local/php7/etc/conf.d \
-                  --without-pear \
                   --enable-bcmath \
                   --with-bz2 \
                   --enable-calendar \
@@ -43,13 +51,11 @@ CONFIGURE_STRING="--prefix=/usr/local/php7 \
                   --with-gd \
                   --with-jpeg-dir \
                   --enable-mbstring \
-                  --with-mcrypt \
                   --with-mhash \
                   --enable-mysqlnd \
-                  --with-mysql=mysqlnd \
-                  --with-mysql-sock=/var/run/mysqld/mysqld.sock \
-                  --with-mysqli=mysqlnd \
-                  --with-pdo-mysql=mysqlnd \
+                  --with-mysqli \
+                  --with-mysql-sock=yes \
+                  --with-pdo-mysql \
                   --with-openssl \
                   --enable-pcntl \
                   --with-pspell \
@@ -62,6 +68,7 @@ CONFIGURE_STRING="--prefix=/usr/local/php7 \
                   --enable-wddx \
                   --with-zlib \
                   --enable-zip \
+                  --without-libzip \
                   --with-readline \
                   --with-curl \
                   --enable-fpm \
@@ -70,5 +77,5 @@ CONFIGURE_STRING="--prefix=/usr/local/php7 \
 
 ./configure $CONFIGURE_STRING
 
-make
+make -j "$JOB_COUNT"
 sudo make install
